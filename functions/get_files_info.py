@@ -26,3 +26,4 @@ def get_files_info(working_directory, directory=None):
 
     list_string = str.strip(list_string)
     return list_string
+

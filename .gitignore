@@ -1,3 +1,7 @@
 /venv
 .env
-calculator/pkg/__pycache__
+calculator/pkg/__pycache__/
+functions/__pycache__/
+calculator/pkg/morelorem.txt
+calculator/dummy.txt
+calculator/lorem.txt
