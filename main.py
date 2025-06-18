@@ -55,6 +55,10 @@ When a user asks a question or makes a request, make a function call plan. You c
 - Write or overwrite files
 
 All paths you provide should be relative to the working directory. You do not need to specify the working directory in your function calls as it is automatically injected for security reasons.
+
+You may need to use multiple function calls to figure out the problem.
+
+When you think you have the complete answer, please provide a detailed summary, a cheeful closing message, and then end the conversation. 
 """
 
 schema_get_files_info = types.FunctionDeclaration(
@@ -141,27 +145,44 @@ genai_content = sys.argv[1]
 messages = [
     types.Content(role="user", parts=[types.Part(text=genai_content)]),
 ]
-response = client.models.generate_content(model='gemini-2.0-flash-001', contents=messages, config=types.GenerateContentConfig(tools=[available_functions], system_instruction=system_prompt))
 
-if verbose_output:
-    print(f'User prompt: {genai_content}')
-    print(f'Prompt tokens: {response.usage_metadata.prompt_token_count}')
-    print(f'Response tokens: {response.usage_metadata.candidates_token_count}')
+i = 0
+MAX_ITER = 20
 
-if response.function_calls == None:
-    print(response.text)
+while i < MAX_ITER:
+    response = client.models.generate_content(model='gemini-2.0-flash-001', contents=messages, config=types.GenerateContentConfig(tools=[available_functions], system_instruction=system_prompt))
 
-else:
-    for function in response.function_calls:
-        if verbose_output:
-            print(f"Calling function: {function.name}({function.args})")
-        func_result = call_function(function, verbose_output)
-        if func_result.parts[0].function_response.response == None:
-            print("Fatal error: no function result")
-            sys.exit(1)
-        else:
+    if verbose_output:
+        print(f'User prompt: {genai_content}')
+        print(f'Prompt tokens: {response.usage_metadata.prompt_token_count}')
+        print(f'Response tokens: {response.usage_metadata.candidates_token_count}')
+
+    if response.function_calls == None:
+        print(response.text)
+        break
+
+    else:
+        for function in response.function_calls:
             if verbose_output:
-                print(f"-> {func_result.parts[0].function_response.response}")
+                print(f"Calling function: {function.name}({function.args})")
+            func_result = call_function(function, verbose_output)
+            if func_result.parts[0].function_response.response == None:
+                print("Fatal error: no function result")
+                sys.exit(1)
+            else:
+                messages.append(f'I made a call to {function.name}({function.args}) and it returned: {func_result.parts[0].function_response.response}')
+                if verbose_output:
+                    print(f"-> {func_result.parts[0].function_response.response}")
 
+    for candidate in response.candidates:
+        for part in candidate.content.parts:
+            if verbose_output:
+                print(f'Content: {part.text}')
+            if (part.text != None):
+                messages.append(part.text)
+        if verbose_output:
+            print(f'Finish Reason: {candidate.finish_reason}')
+            print(f'Finish Message: {candidate.finish_reason}')
 
+    i += 1
 
